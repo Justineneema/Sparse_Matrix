@@ -22,6 +22,22 @@ like Add,Subtract and multiply matrice.
 
 ***
 
+## How to Run
+1. Navigate to the project directory:
+```
+cd dsa/sparse_matrix/code/src
+```
+2. Run the Python script:
+```
+python sparse_matrix_operations.py
+```
+
+3. Follow on-screen prompts:
+
+- Enter the paths of two matrix files.
+- Choose an operation (Addition, Subtraction, Multiplication).
+- View the result printed to the console.
+
 ## Usage
 
 - clone this repository to you local pc
@@ -38,6 +54,12 @@ like Add,Subtract and multiply matrice.
 - after computing, it will create an output file in sample_output folder
 
 ---
+
+## Error Handling
+- Whitespace in files → Ignored automatically.
+- Incorrect format (e.g., missing parentheses, wrong data types) → Raises std::invalid_argument("Input file has wrong format").
+- Invalid operations (e.g., mismatched dimensions for multiplication) → Displays an error message and exits.
+
 
 ### **Credits**
 ```markdown
