@@ -3,7 +3,12 @@ import os
 
 #getting tuples from file location by using function load
 def LoadTuples(location):
-    #checking if file location exist 
+    """
+        Takes the sparse matrix from a file and saves it as a dictionary and check if file exist.
+        
+        :param file_path: Path to the file containing the sparse matrix
+        :return: Dictionary representation of sparse matrix and its dimensions
+        """
     if os.path.exists(location):
         with open(location,'r') as file:
             try:
@@ -60,7 +65,12 @@ def Add(A,B):
 
     #checking if Matrice can be added based on given dimension
     if i==m and j==n:
-        #adding Matrix A and B
+        """
+        Adds two sparse matrices.
+
+        :param other: Another SparseMatrix object
+        :return: New SparseMatrix object (result of addition)
+        """
         sum=[]
         for r in range(i):
             row=[]
