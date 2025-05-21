@@ -1,18 +1,20 @@
-#importing os module to help in locating files
+#importing os module to help in locating files which will be used throught the project
 import os
 
-#getting tuples from file location
+#getting tuples from file location by using function load
 def LoadTuples(location):
-    #checking if file location exist
+    #checking if file location exist 
     if os.path.exists(location):
         with open(location,'r') as file:
             try:
+
+                # Reading the matrix dimensions
                 rows=int(file.readline().strip().split("=")[1])+1
                 cols=int(file.readline().strip().split("=")[1])+1
             except:
                 raise ValueError("Input file has wrong format")
             
-            #getting list of tuples
+            #getting list of tuples using some variables
             Tuples=[]
             for line in file:
                 if line.startswith("(") and line.endswith(")\n"):
@@ -29,7 +31,7 @@ def LoadTuples(location):
 
 
 
-#creating zero matrix
+#creating zero matrix with the given dimensions
 def Zero_Matrix(rows,cols):
     matrix=[]
     for _ in range(rows):
@@ -56,7 +58,7 @@ def Add(A,B):
     m=len(B) #getting rows of Matrix B
     n=len(B[0]) #getting columns of matrix B
 
-    #checking if Matrice can be added
+    #checking if Matrice can be added based on given dimension
     if i==m and j==n:
         #adding Matrix A and B
         sum=[]
@@ -187,5 +189,6 @@ def main():
     else:
         print("invalid choice! you have to choose 1, 2 or 3 only")
 
+# running the main if all script executed correctly
 if __name__== "__main__":
     main()
