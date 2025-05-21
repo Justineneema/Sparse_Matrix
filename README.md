@@ -1,4 +1,4 @@
-# DSA-HW01---Sparce-Matrix
+# Sparse Matrix Operations
 
 This project is about creating programm in any language that perform basic operation on Matrix
 like Add,Subtract and multiply matrice.
