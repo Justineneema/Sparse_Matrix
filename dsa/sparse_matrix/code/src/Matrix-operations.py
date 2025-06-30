@@ -158,9 +158,9 @@ def main():
     #locating input files
     print("\nFrom sample_inputs/ folder, ")
     file1=input("enter file of first matrix: ")
-    matrix1=os.path.join(inputDir,file1)
+    matrix1=os.path.abspath(file1)
     file2=input("enter file name of second matrix: ")
-    matrix2=os.path.join(inputDir,file2)
+    matrix2=os.path.abspath(file2)
 
     #Extracting tuples
     i,j,M1=LoadTuples(matrix1)
