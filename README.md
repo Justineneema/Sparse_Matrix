@@ -29,14 +29,15 @@ cd dsa/sparse_matrix/code/src
 ```
 2. Run the Python script:
 ```
-python sparse_matrix_operations.py
+python3 Matrix_operations.py
 ```
 
 3. Follow on-screen prompts:
 
+- Enter your choice (1-3):
 - Enter the paths of two matrix files.
-- Choose an operation (Addition, Subtraction, Multiplication).
-- View the result printed to the console.
+- Enter the file name of the output
+- View the folder and file created as outputs.
 
 ## Usage
 

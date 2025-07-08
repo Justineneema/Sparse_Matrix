@@ -1,204 +1,318 @@
-#importing os module to help in locating files which will be used throught the project
 import os
 
-#getting tuples from file location by using function load
-def LoadTuples(location):
-    """
-        Takes the sparse matrix from a file and saves it as a dictionary and check if file exist.
+class SparseMatrix:
+    # A sparse matrix implementing the use of coordinates.
+    
+    def __init__(self, matrix_file_path=None, num_rows=0, num_cols=0):
+        # Initializing matrix from file
+        self.rows = num_rows
+        self.cols = num_cols
+        self.elements = []  # List of tuples (row, col, value)
         
-        :param file_path: Path to the file containing the sparse matrix
-        :return: Dictionary representation of sparse matrix and its dimensions
-        """
-    if os.path.exists(location):
-        with open(location,'r') as file:
+        if matrix_file_path:
+            self._load_matrix(matrix_file_path)
+
+    def _load_matrix(self, file_path):
+        """Read the data on the load matrix file.
+        Supposes 0 based indexing of row and 0/1 based indexing of column in the input file,
+        in which a column number corresponding to the value of self.cols is treated as self.cols - 1 (0-based)."""
+        try:
+            with open(file_path, 'r') as f:
+                lines = [line.strip() for line in f if line.strip()]
+                
+            if len(lines) < 2:
+                raise ValueError("File must contain at least rows and columns")
+                
+            # Parse dimensions
             try:
-
-                # Reading the matrix dimensions
-                rows=int(file.readline().strip().split("=")[1])+1
-                cols=int(file.readline().strip().split("=")[1])+1
-            except:
-                raise ValueError("Input file has wrong format")
+                self.rows = int(lines[0].split('=')[1].strip())
+                self.cols = int(lines[1].split('=')[1].strip())
+            except (IndexError, ValueError):
+                raise ValueError("Invalid rows/cols format. Expected 'rows=N' and 'cols=M'")
             
-            #getting list of tuples using some variables
-            Tuples=[]
-            for line in file:
-                if line.startswith("(") and line.endswith(")\n"):
-                    try:
-                        Tuple=line.strip("()\n").split(",")
-                        if len(Tuple)!=3:
-                            raise ValueError("Input file has wrong format")
-                        Tuples.append(tuple(map(int,Tuple)))
-                    except:
-                        raise ValueError("Input file has wrong format")
+            if self.rows <= 0 or self.cols <= 0:
+                raise ValueError("Matrix dimensions must be positive integers")
+            
+            # Parse elements
+            for line in lines[2:]:
+                line = line.replace(" ", "")
+                if not (line.startswith("(") and line.endswith(")")):
+                    raise ValueError(f"Invalid entry format: {line}")
+                
+                content = line[1:-1].split(',')
+                if len(content) != 3:
+                    raise ValueError(f"Entry must have exactly 3 values: {line}")
+                
+                try:
+                    row = int(content[0])
+                    col = int(content[1])
+                    value = int(content[2])
+                except ValueError:
+                    raise ValueError(f"All values must be integers: {line}")
+                
+               # Adjust column index to check if it is equals the number of columns to ensure 0-based indexing.
+                adjusted_col = col - 1 if col == self.cols else col
+
+                # Now validate the adjusted_col against standard 0-based bounds
+                if not (0 <= row < self.rows and 0 <= adjusted_col < self.cols):
+                    raise ValueError(f"Index out of bounds after adjustment: ({row}, {col} (adjusted to {adjusted_col})) "
+                                     f"for matrix {self.rows}x{self.cols}. "
+                                     "Please ensure row indices are 0-based (0 to rows-1) "
+                                     "and column indices are consistent with the matrix dimensions, "
+                                     "with 'cols' value referring to the last column provided.")
+                
+                self.elements.append((row, adjusted_col, value))
+            
+            # Sort elements by row then column for proper operations
+            self.elements.sort(key=lambda x: (x[0], x[1]))
+            
+        except FileNotFoundError:
+            raise FileNotFoundError(f"File not found: {file_path}")
+        except Exception as e:
+            raise ValueError(f"Error loading matrix: {str(e)}")
+
+    def get_element(self, row, col):
+        # Getting element at (row, col). Returns 0 if not found.
+        if not (0 <= row < self.rows and 0 <= col < self.cols):
+            raise ValueError("Indices out of range")
+        
+        # Binary search for proper lookup
+        left, right = 0, len(self.elements)
+        while left < right:
+            mid = (left + right) // 2
+            r, c, _ = self.elements[mid]
+            if r == row and c == col:
+                return self.elements[mid][2]
+            elif r < row or (r == row and c < col):
+                left = mid + 1
+            else:
+                right = mid
+        return 0
+
+    def set_element(self, row, col, value):
+        """Set element at (row, col). If value=0, remove the element in file or directory."""
+        if not (0 <= row < self.rows and 0 <= col < self.cols):
+            raise ValueError("Indices out of range")
+        
+        # Find position to insert/update
+        left, right = 0, len(self.elements)
+        while left < right:
+            mid = (left + right) // 2
+            r, c, _ = self.elements[mid]
+            if r == row and c == col:
+                if value == 0:
+                    del self.elements[mid]
                 else:
-                    raise ValueError("Input file has wrong format")
-        return (rows,cols,Tuples)
+                    self.elements[mid] = (row, col, value)
+                return
+            elif r < row or (r == row and c < col):
+                left = mid + 1
+            else:
+                right = mid
+        
+        if value != 0:
+            self.elements.insert(left, (row, col, value))
 
+    def add(self, other):
+        # Adding two matrices .
+        if self.rows != other.rows or self.cols != other.cols:
+            raise ValueError("Matrix dimensions must match for addition")
+        
+        result = SparseMatrix(num_rows=self.rows, num_cols=self.cols)
+        i = j = 0
+        
+        while i < len(self.elements) and j < len(other.elements):
+            sr, sc, sv = self.elements[i]
+            or_, oc, ov = other.elements[j]
+            
+            if (sr, sc) < (or_, oc):
+                result.elements.append((sr, sc, sv))
+                i += 1
+            elif (sr, sc) > (or_, oc):
+                result.elements.append((or_, oc, ov))
+                j += 1
+            else:
+                sum_val = sv + ov
+                if sum_val != 0:
+                    result.elements.append((sr, sc, sum_val))
+                i += 1
+                j += 1
+        
+        # Add remaining elements
+        while i < len(self.elements):
+            result.elements.append(self.elements[i])
+            i += 1
+        while j < len(other.elements):
+            result.elements.append(other.elements[j])
+            j += 1
+            
+        return result
 
+    def subtract(self, other):
+        # Subtracting two matrices.
+        if self.rows != other.rows or self.cols != other.cols:
+            raise ValueError("Matrix dimensions must match for subtraction")
+        
+        result = SparseMatrix(num_rows=self.rows, num_cols=self.cols)
+        i = j = 0
+        
+        while i < len(self.elements) and j < len(other.elements):
+            sr, sc, sv = self.elements[i]
+            or_, oc, ov = other.elements[j]
+            
+            if (sr, sc) < (or_, oc):
+                result.elements.append((sr, sc, sv))
+                i += 1
+            elif (sr, sc) > (or_, oc):
+                result.elements.append((or_, oc, -ov))
+                j += 1
+            else:
+                diff_val = sv - ov
+                if diff_val != 0:
+                    result.elements.append((sr, sc, diff_val))
+                i += 1
+                j += 1
+        
+        # Addition of remaining elements
+        while i < len(self.elements):
+            result.elements.append(self.elements[i])
+            i += 1
+        while j < len(other.elements):
+            result.elements.append((other.elements[j][0], other.elements[j][1], -other.elements[j][2]))
+            j += 1
+            
+        return result
 
-#creating zero matrix with the given dimensions
-def Zero_Matrix(rows,cols):
-    matrix=[]
-    for _ in range(rows):
-        row=[]
-        for _ in range(cols):
-            row.append(0)
-        matrix.append(row)
-    return matrix
+    def multiply(self, other):
+        # Multiplication of two matrices.
+        if self.cols != other.rows:
+            raise ValueError("Columns of first matrix must match rows of second matrix")
+        
+        result = SparseMatrix(num_rows=self.rows, num_cols=other.cols)
+        
+        # Create a dictionary for quick access to other matrix's elements by row
+        other_dict = {}
+        for r, c, v in other.elements:
+            if r not in other_dict:
+                other_dict[r] = []
+            other_dict[r].append((c, v))
+        
+        # Multiplying non-zero elements
+        temp = {}  # Temporary storage for result elements
+        
+        for sr, sc, sv in self.elements:
+            if sc in other_dict:
+                for oc, ov in other_dict[sc]:
+                    key = (sr, oc)
+                    temp[key] = temp.get(key, 0) + sv * ov
+        
+        # Convert temp dictionary to sorted elements list
+        result.elements = [(r, c, v) for (r, c), v in temp.items() if v != 0]
+        result.elements.sort(key=lambda x: (x[0], x[1]))
+        
+        return result
 
-#creeating sparce matrix from list of tuples
-def SparseMatrix(rows,cols,Tuples):
-    #loading zero matrix
-    matrix=Zero_Matrix(rows=rows,cols=cols)
-    #filling non zero values in matrix
-    for T in Tuples:
-        i,j,v =T
-        matrix[i][j]=v
-    return matrix
+    def save_to_file(self, file_path):
+        # Saving the matrices to file in specified format.
+        try:
+            os.makedirs(os.path.dirname(file_path), exist_ok=True)
+            with open(file_path, 'w') as f:
+                f.write(f"rows={self.rows}\n")
+                f.write(f"cols={self.cols}\n")
+                for row, col, value in self.elements:
+                    f.write(f"({row}, {col}, {value})\n")
+        except Exception as e:
+            raise ValueError(f"Error saving to file: {str(e)}")
 
-#defining Add function to Add two matrix
-def Add(A,B):
-    i=len(A) #getting rows of Matrix A
-    j=len(A[0]) #getting columns of Matrix A
-    m=len(B) #getting rows of Matrix B
-    n=len(B[0]) #getting columns of matrix B
+def get_user_input(prompt, validator=None):
+    # Function to help in getting valid user inputs.
+    while True:
+        try:
+            user_input = input(prompt).strip()
+            # checking for empty inputs
+            if not user_input and validator and validator.__name__ == 'validate_file_path':
+                print("Input path cannot be empty.")
+                continue
+            if not user_input and validator and validator.__name__ == 'validate_output_filename':
+                print("Output filename cannot be empty.")
+                continue
+            
+            if validator:
+                user_input = validator(user_input)
+            return user_input
+        except Exception as e:
+            print(f"Invalid input: {str(e)}")
 
-    #checking if Matrice can be added based on given dimension
-    if i==m and j==n:
-        """
-        Adds two sparse matrices.
+def validate_file_path(path):
+    # Validating if file path exists.
+    path = os.path.abspath(path)
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"File not found: {path}")
+    return path
 
-        :param other: Another SparseMatrix object
-        :return: New SparseMatrix object (result of addition)
-        """
-        sum=[]
-        for r in range(i):
-            row=[]
-            for v in range(j):
-                row.append(A[r][v]+B[r][v])
-            sum.append(row)
-        #returning sum Matrix
-        return sum
-    print("can't add these matrice, rows and columns of 1st mastix have to equal to that of 2nd matrix ")
+def validate_output_filename(name):
+    # Validate output filename and check for .txt extension.
+    if not name:
+        raise ValueError("Output filename cannot be empty")
+    if not name.endswith('.txt'):
+        name += '.txt'
+    return name
 
-#defining Sub function to subtract two matrix
-def Sub(A,B):
-    i=len(A) #getting rows of Matrix A
-    j=len(A[0]) #getting columns of Matrix A
-    m=len(B) #getting rows of Matrix B
-    n=len(B[0]) #getting columns of matrix B
-
-    #checking if Matrice can be subtracted
-    if i==m and j==n:
-        #subtracting Matrix B from A
-        sub=[]
-        for r in range(i):
-            row=[]
-            for v in range(j):
-                row.append(A[r][v]-B[r][v])
-            sub.append(row)
-        #returning subtraction Matrix
-        return sub
-    print("can't subtract these matrice, rows and columns of 1st mastix have to equal to that of 2nd matrix ")
-
-#defining Multi function to multiply two matrix
-def Multi(A,B):
-    i=len(A) #getting rows of Matrix A
-    j=len(A[0]) #getting columns of Matrix A
-    m=len(B) #getting rows of Matrix B
-    n=len(B[0]) #getting columns of matrix B
-
-    #checking if Matrice can be multplied
-    if j==m:
-        #multipliying Matrix A and B
-        multi=[]
-        for r in range(i):
-            row=[]
-            for v in range(n):
-                sum=0
-                for k in  range(j):
-                    sum+=A[r][k]* B[k][v]
-                row.append(sum)
-            multi.append(row)
-        #returning product Matrix
-        return multi
-    print("can't multply these matrice, rows of 1st mastix have to equal to columns of 2nd matrix ")
-
-#converting sparce matrix into tuples
-def toTuples(A):
-    rows=len(A)
-    cols=len(A[0])
-    tuples=[]
-    for i in range(rows):
-        for j in range(cols):
-            if A[i][j]!=0:
-                tuples.append((i,j,A[i][j]))
-    return tuples
-
-#creating function that writes tuples of sparce matrix to files
-def toFile(A,locaion):
-    rows=len(A)-1
-    cols=len(A[0])-1
-    Tuples=toTuples(A)
-    with open(locaion,'w') as file:
-        file.write(f"rows = {rows}\n")
-        file.write(f"columns = {cols}\n")
-        for T in Tuples:
-            file.write(f"{T}\n")
-
-
-#creating main function 
 def main():
+    # Main program interface.
+    print("Sparse Matrix Operations")
     
-    #locating main directories
-    baseDir=os.path.dirname(__file__)
-    inputDir=os.path.join(baseDir,"../../sample_inputs")
-    outputDir=os.path.join(baseDir,"../../sample_outputs")
-
-    #locating input files
-    print("\nFrom sample_inputs/ folder, ")
-    file1=input("enter file of first matrix: ")
-    matrix1=os.path.abspath(file1)
-    file2=input("enter file name of second matrix: ")
-    matrix2=os.path.abspath(file2)
-
-    #Extracting tuples
-    i,j,M1=LoadTuples(matrix1)
-    m,n,M2=LoadTuples(matrix2)
-
-    #loading Sparce Matrix
-    A=SparseMatrix(i,j,M1)
-    B=SparseMatrix(m,n,M2)
-
-    #performing operations on matrix A and B
-    #and writing out put to their specific file location
-    print()
-    print("choose operation: \n")
-    print("- 1: Addition")
-    print("- 2: Subutraction")
-    print("- 3: Multiplication")
-    choice=int(input())
-    if choice==1:
-        sum=Add(A,B)
-        if sum:
-            toFile(sum,f"{outputDir}/summation.txt")
-            print(f"\ntuples of sum of matrice were succesfuly stored in: \n{outputDir}/summation.txt\n\n")
+    # check for output existance
+    output_dir = os.path.join(os.getcwd(), "sample_outputs")
+    os.makedirs(output_dir, exist_ok=True)
     
-    elif choice==2:
-        sub=Sub(A,B)
-        if sub:
-            toFile(sub,f"{outputDir}/subtraction.txt")
-            print(f"tuples of subtraction of matrice were succesfuly stored in: \n{outputDir}/subtraction.txt\n\n")
+    while True:
+        print("\nMenu:")
+        print("1. Add matrices")
+        print("2. Subtract matrices")
+        print("3. Multiply matrices")
+        
+        choice = get_user_input("Enter your choice (1-3): ", 
+                                lambda x: x if x in ('1', '2', '3', ) else None)
     
-    elif choice ==3:
-        prod=Multi(A,B)
-        if prod:
-            toFile(prod,f"{outputDir}/Multiplication.txt")
-            print(f"tuples of product of matrice were succesfuly stored in: \n{outputDir}/Multiplication.txt\n\n")
+        
+        # Check for invalid choice if the validator in get_user_input returned None
+        if choice is None:
+            print("Invalid choice. Please enter 1, 2, or 3")
+            continue
 
-    else:
-        print("invalid choice! you have to choose 1, 2 or 3 only")
+        try:
+            # Get input files from user
+            file1 = get_user_input("Enter path to first matrix file: ", validate_file_path)
+            file2 = get_user_input("Enter path to second matrix file: ", validate_file_path)
+            
+            # Get output filename
+            output_name = get_user_input("Enter output filename without extension: ", validate_output_filename)
+            output_path = os.path.join(output_dir, output_name)
+            
+            # Loading matrices
+            matrix1 = SparseMatrix(file1)
+            matrix2 = SparseMatrix(file2)
+            
+            # Perform operation
+            if choice == '1':
+                result = matrix1.add(matrix2)
+                op_name = "addition"
+            elif choice == '2':
+                result = matrix1.subtract(matrix2)
+                op_name = "subtraction"
+            else: # choice == '3'
+                result = matrix1.multiply(matrix2)
+                op_name = "multiplication"
+            
+            # Save the output result
+            result.save_to_file(output_path)
+            print(f"\nMatrix {op_name} completed successfully!")
+            print(f"Result saved to: {os.path.abspath(output_path)}")
+            
+        except Exception as e:
+            print(f"\nError: {str(e)}")
+            print("Please try again with valid inputs.")
 
-# running the main if all script executed correctly
-if __name__== "__main__":
+if __name__ == "__main__":
     main()
